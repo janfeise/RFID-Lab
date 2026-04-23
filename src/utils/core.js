@@ -10,6 +10,19 @@ export class Reader {
     this.Q = Q ? Q : Reader.generateRandomQ(); // 初始Q值
   }
 
+  handleResponses(res) {
+    // 处理标签的响应
+    const rn16List = res.filter((r) => r.type === "RN16").map((r) => r.value);
+
+    // 只有一个标签响应时，才进行后续操作
+    if (rn16List.length === 1) {
+      const rn16 = rn16List[0];
+      return { type: "ACK", value: rn16 }; // 发送 ACK，包含 RN16
+    } else {
+      return null;
+    }
+  }
+
   // 静态方法（类自身方法，不是实例方法）
   static generateRandomQ() {
     return Math.floor(Math.random() * 8); // 生成0-15之间的随机整数
@@ -47,9 +60,12 @@ export class Tag {
 
   // 响应RN16
   respondRN16() {
+    // 当 slot counter 为0时，hasResponded 为true，其它情况为false
     if (this.hasResponded === true && this.RN_16 === null) {
-      this.RN_16 = Tag.generateRN16();
+      this.RN_16 = this.generateRN16();
+      return { type: "RN16", value: this.RN_16 };
     }
+    return null;
   }
 
   // 生成 RN16

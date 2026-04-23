@@ -12,8 +12,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, i) in props.tags" :key="item.id">
-            <td>{{ i + 1 }}</td>
+          <tr v-for="item in sortedTags" :key="item.id">
+            <td>{{ item.index + 1 }}</td>
             <td :class="[`stats__id`]">{{ item.EPC }}</td>
             <td
               class="stats__text-center num-font"
@@ -52,13 +52,28 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 
 const props = defineProps({
   tags: {
     type: Array,
     default: () => [],
   },
+});
+
+const sortedTags = computed(() => {
+  const temp = [...props.tags].map((tag, index) => ({
+    ...tag,
+    index, // 添加 index 属性用于显示和定位
+  }));
+
+  return temp.sort((a, b) => {
+    // slot为0的标签优先显示
+    if (a.slotCounter === 0 && b.slotCounter !== 0) return -1;
+    if (a.slotCounter !== 0 && b.slotCounter === 0) return 1;
+
+    return 0;
+  });
 });
 
 watch(

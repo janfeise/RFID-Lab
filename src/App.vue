@@ -19,8 +19,13 @@
           @onQueryRep="onQueryRep"
           @onSlotZero="onSlotZero"
           @onRN16Response="onRN16Response"
+          @onAck="onAck"
         />
-        <SimulationStage :tags="tags" />
+        <SimulationStage
+          :tags="tags"
+          :stage="protocolState.stage"
+          :readerAcked="protocolState.readerAcked"
+        />
         <StatsPanel :tags="tags" />
       </div>
 
@@ -50,12 +55,14 @@ import { Reader, Tag } from "./utils/core.js";
 const modalVisible = ref(true); // 模态框初始态
 const sidebarCollapsed = ref(false);
 const config = reactive({}); // 存储仿真配置
-const reader = reactive({}); // 仿真中的 Reader 实例
+const reader = ref(null); // 仿真中的 Reader 实例
 const tags = reactive([]); // 仿真中的 Tag 实例列表
 
 // 状态控制
 const protocolState = reactive({
-  hasSlotZero: false,
+  hasSlotZero: false, // 是否有标签的 slot counter 为 0，用于控制 QueryRep 循环
+  stage: null, // 阶段控制，用于判断是否有冲突（多个RN16响应），若只有一个RN16则进入ACK阶段
+  readerAcked: false, // ACK确认后用于高亮 Reader
 });
 
 const initReader = (Q) => {
@@ -73,12 +80,15 @@ const handleStartSimulation = (simulationConfig) => {
   modalVisible.value = false;
 
   // 初始化 Reader 和 Tags
-  Object.assign(reader, initReader(config.qValue));
+  reader.value = initReader(config.qValue);
   initTags(config.tagCount);
 };
 
 // Query(Q) 指令
 const onQuery = () => {
+  // 状态初始化
+  resetState();
+
   tags.forEach((tag) => {
     tag.onQuery(config.qValue);
   });
@@ -86,6 +96,9 @@ const onQuery = () => {
 
 // QueryRep() 指令
 const onQueryRep = () => {
+  // 状态初始化
+  resetState();
+
   tags.forEach((tag) => {
     tag.onQueryRep();
   });
@@ -93,6 +106,8 @@ const onQueryRep = () => {
 
 // 判断是否有标签的 slot counter 都为 0
 const onSlotZero = () => {
+  protocolState.readerAcked = false;
+
   const hasSlotZero = tags
     .map((tag) => {
       if (tag.isSlotZero()) {
@@ -103,14 +118,47 @@ const onSlotZero = () => {
     })
     .includes(true);
 
-  protocolState.hasSlotZero = hasSlotZero;
+  protocolState.hasSlotZero = hasSlotZero; // 默认为false，当有tag的slot counter为0时改为true，退出 QueryRep 循环，进入 RN16 响应阶段
+  console.log("Slot Counter 是否为 0？", hasSlotZero);
 };
 
 // 响应 RN16
 const onRN16Response = () => {
+  const tagsRespond = []; // 收集所有响应 RN16 的标签
   tags.forEach((tag) => {
-    tag.respondRN16(); // RN16 响应
+    const rn16Response = tag.respondRN16();
+    if (rn16Response) {
+      tagsRespond.push(rn16Response);
+    }
   });
+
+  const readerRes = reader.value.handleResponses(tagsRespond);
+  if (readerRes) {
+    console.log("Reader ACK Response:", readerRes);
+    protocolState.stage = "ACK";
+    protocolState.readerAcked = false;
+    console.log("进入 ACK 阶段，等待 EPC 数据传输");
+  } else if (tagsRespond.length > 1) {
+    console.log("标签发生t冲突，进入 COLLISION 阶段");
+    protocolState.stage = "COLLISION";
+    protocolState.readerAcked = false;
+  } else {
+    // TODO
+  }
+};
+
+const onAck = () => {
+  // TODO：日志需输出 ACK 响应的 RN16 值，以便在 StatsPanel 中显示（下方控制台显示）
+  protocolState.readerAcked = true;
+};
+
+/**
+ * 辅助函数：初始化状态
+ */
+const resetState = () => {
+  protocolState.hasSlotZero = false;
+  protocolState.stage = null;
+  protocolState.readerAcked = false;
 };
 </script>
 

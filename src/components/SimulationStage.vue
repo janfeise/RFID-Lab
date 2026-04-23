@@ -7,7 +7,10 @@
     <div class="stage__glow"></div>
 
     <!-- Central Reader -->
-    <div class="stage__reader">
+    <div
+      class="stage__reader"
+      :class="{ 'stage__reader--ack': props.readerAcked }"
+    >
       <div class="stage__signal-wave stage__signal-wave--1"></div>
       <div class="stage__signal-wave stage__signal-wave--2"></div>
 
@@ -24,18 +27,25 @@
       v-for="(tag, i) in props.tags"
       :key="tag.EPC"
       class="stage__tag"
-      :class="[`stage__tag--${tag.status}`]"
+      :class="[
+        `stage__tag--${tag.status}`,
+        {
+          'stage__tag--ack': tag.slotCounter === 0 && props.stage === 'ACK',
+        },
+      ]"
       :style="getTagPosition(tag, i)"
     >
       <div class="stage__tag-card">
         <div class="stage__tag-header">
-          <span class="stage__tag-id">TAG_{{ i }}</span>
+          <span class="stage__tag-id">TAG_{{ i + 1 }}</span>
           <!-- <span class="stage__tag-id">{{ tag.EPC }}</span> -->
           <div class="stage__tag-indicator"></div>
         </div>
         <div
           class="stage__tag-slot"
-          :class="{ 'stage__text--zero': tag.slotCounter === 0 }"
+          :class="{
+            'stage__text--zero': tag.slotCounter === 0,
+          }"
         >
           slot counter:
           {{ tag.slotCounter !== null ? tag.slotCounter : "null" }}
@@ -48,12 +58,20 @@
 </template>
 
 <script setup>
-import { reactive, watch } from "vue";
+import { reactive, watch, computed } from "vue";
 
 const props = defineProps({
   tags: {
     type: Array,
     default: () => [],
+  },
+  stage: {
+    type: String,
+    default: null,
+  },
+  readerAcked: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -89,6 +107,16 @@ watch(
     });
   },
   { immediate: true },
+);
+
+watch(
+  () => props.stage,
+  (newStage) => {
+    if (newStage === "ACK") {
+      // ACK阶段，说明只有一个 tag 响应
+      console.log("进入 ACK 阶段，只有一个标签响应，准备高亮显示该标签");
+    }
+  },
 );
 </script>
 
@@ -129,6 +157,22 @@ watch(
   &__reader {
     position: relative;
     z-index: 100;
+
+    &--ack {
+      .stage__reader-core {
+        border-color: rgba(90, 218, 206, 0.8);
+        box-shadow: 0 0 36px rgba(90, 218, 206, 0.45);
+      }
+
+      .stage__reader-icon,
+      .stage__reader-label {
+        color: var(--secondary);
+      }
+
+      .stage__signal-wave {
+        border-color: rgba(90, 218, 206, 0.28);
+      }
+    }
   }
 
   &__reader-core {
@@ -273,6 +317,26 @@ watch(
     .stage__tag-indicator {
       background-color: var(--error);
       animation: pulse-error 1s infinite;
+    }
+  }
+
+  &__tag--ack {
+    z-index: 999;
+
+    .stage__tag-card {
+      border-color: rgba(90, 218, 206, 0.7);
+      box-shadow: 0 0 20px rgba(90, 218, 206, 0.35);
+    }
+
+    .stage__tag-id,
+    .stage__tag-status,
+    .stage__tag-slot {
+      color: var(--secondary);
+    }
+
+    .stage__tag-indicator {
+      background-color: var(--secondary);
+      box-shadow: 0 0 8px rgba(90, 218, 206, 0.7);
     }
   }
 

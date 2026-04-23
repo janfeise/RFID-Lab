@@ -62,6 +62,7 @@ const emit = defineEmits([
   "onQueryRep",
   "onSlotZero",
   "onRN16Response",
+  "onAck",
 ]);
 
 const currentQ = computed(() => (typeof props.Q === "string" ? props.Q : 4));
@@ -78,26 +79,24 @@ const steps = computed(() => [
         : "发送 QueryRep 指令",
     action: QueryCommand.value,
   },
-  { id: 2, label: "插槽计数是否为 0？", action: "onSlotZero" },
+  { id: 2, label: "slot counter是否为 0？", action: "onSlotZero" },
   { id: 3, label: "RN16 响应", action: "onRN16Response" },
-  { id: 4, label: "确认握手 (ACK)" },
+  { id: 4, label: "确认握手 (ACK)", action: "onAck" },
   { id: 5, label: "EPC 数据传输" },
 ]);
 
 const handleClick = (step) => {
-  if (step.action) {
-    emit(step.action);
-  }
-
   if (step.action === "onSlotZero") {
     emit("onSlotZero");
 
     if (!props.hasSlotZero) {
-      // 没有tag → 走 QueryRep（停留或循环）
+      // 没有tag的slot counter为0 → 走 QueryRep（停留或循环）
       activeStep.value = 0; // 回到判断或停留
       QueryCommand.value = "onQueryRep"; // 切换到 QueryRep 指令
       return;
     }
+  } else if (step.action) {
+    emit(step.action);
   }
 
   if (activeStep.value < steps.value.length - 1) {
