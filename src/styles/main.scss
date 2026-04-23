@@ -1,0 +1,28 @@
+@use "variables";
+@use "base";
+@use "typography";
+
+// Global utilities
+.glass-panel {
+  backdrop-filter: blur(16px);
+  background: rgba(23, 31, 51, 0.8);
+}
+
+.glow-primary {
+  box-shadow: 0 0 20px rgba(46, 91, 255, 0.2);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 15px rgba(90, 218, 206, 0.2);
+}
+
+@keyframes ping-signal {
+  75%, 100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-ping-signal {
+  animation: ping-signal 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
