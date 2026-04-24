@@ -14,7 +14,7 @@
         <tbody>
           <tr v-for="item in sortedTags" :key="item.id">
             <td>{{ item.id }}</td>
-            <td :class="[`stats__id`]">{{ item.id }}</td>
+            <td :class="[`stats__id`]">{{ item.EPC }}</td>
             <td
               class="stats__text-center num-font"
               :class="{ 'stats__text--zero': item.slotCounter === 0 }"
