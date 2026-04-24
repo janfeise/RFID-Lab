@@ -4,6 +4,7 @@
 "use strict";
 
 import { v4 as uuidv4 } from "uuid";
+import { logColors } from "./logConfig.js";
 
 export class Reader {
   constructor(Q) {
@@ -11,13 +12,14 @@ export class Reader {
   }
 
   handleResponses(res) {
-    // 处理标签的响应
-    const rn16List = res.filter((r) => r.type === "RN16").map((r) => r.value);
+    console.log("Reader received responses:", res);
+    // 处理标签的RN16响应
+    const rn16List = res.filter((r) => r.type === "RN16").map((r) => r.rn16);
 
     // 只有一个标签响应时，才进行后续操作
     if (rn16List.length === 1) {
       const rn16 = rn16List[0];
-      return { type: "ACK", value: rn16 }; // 发送 ACK，包含 RN16
+      return { type: "ACK", rn16: rn16 }; // 发送 ACK，包含 RN16
     } else {
       return null;
     }
@@ -30,7 +32,8 @@ export class Reader {
 }
 
 export class Tag {
-  constructor() {
+  constructor(id) {
+    this.id = id;
     this.EPC = uuidv4();
     this.PC = 0x3000;
     this.slotCounter = null;
@@ -63,7 +66,7 @@ export class Tag {
     // 当 slot counter 为0时，hasResponded 为true，其它情况为false
     if (this.hasResponded === true && this.RN_16 === null) {
       this.RN_16 = this.generateRN16();
-      return { type: "RN16", value: this.RN_16 };
+      return { type: "RN16", tagId: this.id, rn16: this.RN_16 };
     }
     return null;
   }
@@ -77,5 +80,22 @@ export class Tag {
   static generateSlot(Q) {
     const numSlots = Math.pow(2, Q);
     return Math.floor(Math.random() * numSlots); // 生成0到2^Q-1之间的随机整数
+  }
+}
+
+export class Log {
+  constructor({ actor, type, message }) {
+    this.id = uuidv4();
+    this.timestamp = new Date();
+    this.time = this.timestamp.toLocaleTimeString();
+
+    this.actor = actor; // 参与者：Reader、Tag、System
+    this.type = type;
+    this.message = message;
+    this.color = this.getColor(this.type);
+  }
+
+  getColor(type) {
+    return logColors[type.toUpperCase()] || logColors.INFO;
   }
 }

@@ -29,7 +29,7 @@
         <StatsPanel :tags="tags" />
       </div>
 
-      <ConsolePanel />
+      <ConsolePanel :logs="logs" />
     </main>
 
     <!-- FAB -->
@@ -50,13 +50,14 @@ import SimulationStage from "./components/SimulationStage.vue";
 import StatsPanel from "./components/StatsPanel.vue";
 import ConsolePanel from "./components/ConsolePanel.vue";
 import InitModal from "./components/InitModal.vue";
-import { Reader, Tag } from "./utils/core.js";
+import { Reader, Tag, Log } from "./utils/core.js";
 
 const modalVisible = ref(true); // 模态框初始态
 const sidebarCollapsed = ref(false);
 const config = reactive({}); // 存储仿真配置
 const reader = ref(null); // 仿真中的 Reader 实例
 const tags = reactive([]); // 仿真中的 Tag 实例列表
+const logs = reactive([]); // 存储日志
 
 // 状态控制
 const protocolState = reactive({
@@ -66,12 +67,29 @@ const protocolState = reactive({
 });
 
 const initReader = (Q) => {
+  logs.length = 0; // 清空日志
+  resetState(); // 初始化状态
+  logs.push(
+    new Log({
+      actor: "SYSTEM",
+      type: "info",
+      message: `Reader initialized with Q=${Q}`,
+    }),
+  );
   return new Reader(Q);
 };
 
 const initTags = (count) => {
   for (let i = 0; i < count; i++) {
-    tags.push(new Tag());
+    const tag = new Tag(i + 1);
+    tags.push(tag);
+    logs.push(
+      new Log({
+        actor: "SYSTEM",
+        type: "info",
+        message: `Tag ${tag.id} initialized`,
+      }),
+    );
   }
 };
 
@@ -91,6 +109,13 @@ const onQuery = () => {
 
   tags.forEach((tag) => {
     tag.onQuery(config.qValue);
+    logs.push(
+      new Log({
+        actor: "READER",
+        type: "info",
+        message: `Sent Query with Q=${config.qValue} to Tag ${tag.id}, Tag slot counter set to ${tag.slotCounter}`,
+      }),
+    );
   });
 };
 
@@ -101,6 +126,13 @@ const onQueryRep = () => {
 
   tags.forEach((tag) => {
     tag.onQueryRep();
+    logs.push(
+      new Log({
+        actor: "READER",
+        type: "info",
+        message: `Sent QueryRep to Tag ${tag.id}, Tag slot counter--`,
+      }),
+    );
   });
 };
 
@@ -110,8 +142,22 @@ const onSlotZero = () => {
 
   const hasSlotZero = tags
     .map((tag) => {
+      logs.push(
+        new Log({
+          actor: "SYSTEM",
+          type: "info",
+          message: `Checking Tag ${tag.id} slot counter: ${tag.slotCounter}`,
+        }),
+      );
       if (tag.isSlotZero()) {
         tag.hasResponded = true; // 进入响应状态，等待 RN16
+        logs.push(
+          new Log({
+            actor: "TAG",
+            type: "response",
+            message: `Tag ${tag.id} has slot counter 0, ready to respond RN16`,
+          }),
+        );
         return true;
       }
       return false;
@@ -134,12 +180,24 @@ const onRN16Response = () => {
 
   const readerRes = reader.value.handleResponses(tagsRespond);
   if (readerRes) {
-    console.log("Reader ACK Response:", readerRes);
+    console.log("Reader ACK Response:  222", readerRes);
     protocolState.stage = "ACK";
     protocolState.readerAcked = false;
-    console.log("进入 ACK 阶段，等待 EPC 数据传输");
+    logs.push(
+      new Log({
+        actor: "READER",
+        type: "response",
+        message: `Reader ACKs Tag ${tagsRespond[0].tagId} with RN16 ${readerRes.rn16}`,
+      }),
+    );
   } else if (tagsRespond.length > 1) {
-    console.log("标签发生t冲突，进入 COLLISION 阶段");
+    logs.push(
+      new Log({
+        actor: "SYSTEM",
+        type: "error",
+        message: `Collision detected! ${tagsRespond.length} tags responded with RN16 simultaneously.`,
+      }),
+    );
     protocolState.stage = "COLLISION";
     protocolState.readerAcked = false;
   } else {
@@ -148,7 +206,13 @@ const onRN16Response = () => {
 };
 
 const onAck = () => {
-  // TODO：日志需输出 ACK 响应的 RN16 值，以便在 StatsPanel 中显示（下方控制台显示）
+  logs.push(
+    new Log({
+      actor: "READER",
+      type: "response",
+      message: `Reader sent ACK to Tag ${reader.value.ackedTagId} with RN16 ${reader.value.ackedRN16}`,
+    }),
+  );
   protocolState.readerAcked = true;
 };
 

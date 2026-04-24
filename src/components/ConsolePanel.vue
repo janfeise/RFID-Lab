@@ -19,13 +19,13 @@
       <div class="console__params">
         <span class="console__label">Q 参数调节</span>
         <div class="console__slider-group">
-          <input 
-            type="range" 
-            min="0" 
-            max="15" 
+          <input
+            type="range"
+            min="0"
+            max="15"
             v-model="qValue"
             class="console__slider"
-          >
+          />
           <div class="console__slider-labels">
             <span>Q=0</span>
             <span>Q=15</span>
@@ -38,7 +38,12 @@
         <div class="console__signal-info">
           <span class="console__label">信号强度</span>
           <div class="console__signal-bars">
-            <div v-for="i in 4" :key="i" class="console__signal-bar" :class="{ 'console__signal-bar--active': i <= 3 }"></div>
+            <div
+              v-for="i in 4"
+              :key="i"
+              class="console__signal-bar"
+              :class="{ 'console__signal-bar--active': i <= 3 }"
+            ></div>
           </div>
         </div>
       </div>
@@ -46,12 +51,24 @@
 
     <!-- Logs -->
     <div class="console__logs custom-scrollbar" ref="logRef">
-      <div v-for="(log, index) in logEntries" :key="index" class="console__log-entry">
+      <div
+        v-for="(log, index) in props.logs"
+        :key="index"
+        class="console__log-entry"
+        :style="{
+          color: log.color,
+        }"
+      >
         <span class="console__log-time">[{{ log.time }}]</span>
-        <span :class="['console__log-source', `console__log-source--${log.sourceType}`]">
-          [{{ log.source }}]
+        <span
+          :class="[
+            'console__log-source',
+            `console__log-source--${log.actor.toLowerCase()}`,
+          ]"
+        >
+          [{{ log.actor.toLowerCase() }}]
         </span>
-        <span :class="['console__log-msg', log.type ? `console__log-msg--${log.type}` : '']">
+        <span>
           {{ log.message }}
         </span>
       </div>
@@ -60,18 +77,37 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, nextTick, onMounted } from "vue";
+
+const props = defineProps({
+  logs: {
+    type: Array,
+    default: () => [],
+  },
+});
 
 const qValue = ref(4);
-const logEntries = [
-  { time: '14:20:01', source: '阅读器', sourceType: 'primary', message: '发送查询指令 (Q=4, Sel=0, Session=S0)' },
-  { time: '14:20:01', source: 'TAG_482', sourceType: 'secondary', message: '插槽计数设置为 0。正在发送 RN16。' },
-  { time: '14:20:01', source: 'TAG_911', sourceType: 'error', message: '插槽计数设置为 0。正在发送 RN16。' },
-  { time: '14:20:01', source: '阅读器', sourceType: 'primary', type: 'error', message: '检测到冲突 (插槽 0)。重试盘存轮次。' },
-  { time: '14:20:02', source: 'TAG_032', sourceType: 'outline', message: '插槽计数设置为 7。计数器递增。' },
-  { time: '14:20:02', source: '阅读器', sourceType: 'primary', message: '广播 QueryRep 指令。' },
-  { time: '14:20:03', source: 'TAG_482', sourceType: 'secondary', type: 'highlight', message: '收到确认 (ACK)。传输 EPC 数据: 300833B2DDD...' },
-];
+const logRef = ref(null);
+
+// 滚动函数
+const scrollToBottom = async () => {
+  await nextTick();
+  if (logRef.value) {
+    // 直接赋值最快，无动画感，符合控制台直觉
+    logRef.value.scrollTop = logRef.value.scrollHeight;
+  }
+};
+
+// 监听 logs 变化，自动滚动到底部
+watch(
+  () => props.logs.length,
+  () => {
+    scrollToBottom();
+  },
+);
+
+// 初始加载也滚动一次
+onMounted(scrollToBottom);
 </script>
 
 <style lang="scss" scoped>
@@ -120,7 +156,9 @@ const logEntries = [
     }
 
     &--danger {
-      &:hover { color: var(--error); }
+      &:hover {
+        color: var(--error);
+      }
     }
   }
 
@@ -179,14 +217,14 @@ const logEntries = [
     margin-top: 4px;
     font-size: 9px;
     color: var(--outline);
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
   }
 
   &__badge {
     background-color: rgba(46, 91, 255, 0.1);
     color: var(--primary);
     font-size: 11px;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
     padding: 2px 10px;
     border-radius: var(--radius-sm);
@@ -213,7 +251,7 @@ const logEntries = [
     height: 4px;
     background-color: rgba(184, 195, 255, 0.1);
     border-radius: var(--radius-full);
-    
+
     &--active {
       background-color: var(--primary);
     }
@@ -223,7 +261,7 @@ const logEntries = [
     flex: 1;
     padding: var(--spacing-md) var(--spacing-lg);
     overflow-y: auto;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 11px;
     display: flex;
     flex-direction: column;
@@ -234,23 +272,51 @@ const logEntries = [
     display: flex;
     gap: var(--spacing-lg);
     opacity: 0.6;
+
+    &:last-child {
+      animation: fadeIn 0.5s ease;
+    }
   }
 
-  &__log-time { color: var(--outline); font-family: 'Space Grotesk', sans-serif; width: 80px; }
+  &__log-time {
+    font-family: "Space Grotesk", sans-serif;
+    width: 80px;
+  }
 
   &__source {
     font-weight: 700;
     width: 100px;
-    &--primary { color: var(--primary); }
-    &--secondary { color: var(--secondary); }
-    &--error { color: var(--error); }
-    &--outline { color: var(--outline); }
+    &--primary {
+      color: var(--primary);
+    }
+    &--secondary {
+      color: var(--secondary);
+    }
+    &--error {
+      color: var(--error);
+    }
+    &--outline {
+      color: var(--outline);
+    }
   }
 
   &__log-msg {
     color: var(--outline);
-    &--error { color: var(--error); }
-    &--highlight { color: var(--on-surface); }
+    &--error {
+      color: var(--error);
+    }
+    &--highlight {
+      color: var(--on-surface);
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 </style>
