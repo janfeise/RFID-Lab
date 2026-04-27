@@ -1,0 +1,42 @@
+// Color Palette - Atmospheric Command Center
+:root {
+  --primary: #b8c3ff;
+  --primary-container: #2e5bff;
+  --on-primary: #002388;
+  --secondary: #5adace;
+  --on-secondary: #003733;
+  --tertiary: #ffb866;
+  --success: #a6f0c6;
+  --error: #ffb4ab;
+  --background: #0b1326;
+  --surface: #0b1326;
+  --surface-container-lowest: #060e20;
+  --surface-container-low: #131b2e;
+  --surface-container: #171f33;
+  --surface-container-high: #222a3d;
+  --surface-container-highest: #2d3449;
+  --on-surface: #dae2fd;
+  --on-surface-variant: #c4c5d9;
+  --outline: #8e90a2;
+  --outline-variant: #434656;
+
+  // Spacing
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  // Radius
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  // Z-Index
+  --z-app-bar: 1000;
+  --z-nav: 900;
+  --z-modal: 2000;
+  --z-fab: 1500;
+}

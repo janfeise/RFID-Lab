@@ -1,0 +1,63 @@
+@use "variables" as *;
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body, h1, h2, h3, h4, p, ul, ol, li, figure, figcaption, blockquote, dl, dd {
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  scroll-behavior: smooth;
+  text-rendering: optimizeSpeed;
+  line-height: 1.5;
+  background-color: var(--background);
+  color: var(--on-surface);
+  font-family: 'Noto Sans SC', sans-serif;
+  overflow: hidden;
+}
+
+ul, ol {
+  list-style: none;
+  padding: 0;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+input, textarea, select {
+  font: inherit;
+}
+
+img, picture {
+  max-width: 100%;
+  display: block;
+}
+
+.custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--surface-container-low);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--outline-variant);
+    border-radius: var(--radius-full);
+    &:hover {
+      background: var(--outline);
+    }
+  }
+}

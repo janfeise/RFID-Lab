@@ -1,0 +1,39 @@
+@use "variables" as *;
+
+// Material Symbols Icon Font
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-flex;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-headline {
+  font-family: 'Noto Sans SC', 'Space Grotesk', sans-serif;
+}
+
+.num-font {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.mono-font {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.875rem; }
+.text-md { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+
+.tracking-widest { tracking: 0.1em; }
+.font-bold { font-weight: 700; }
+.font-black { font-weight: 900; }
