@@ -291,15 +291,15 @@ def plot_tag_count_overview(results: Sequence[dict[str, float]],
         linewidth=2,
         label="信道利用率 S",
     )
-    probability_line = ax_right.plot(
-        list(x_positions),
-        df["success_rate"],
-        color="#8e44ad",
-        marker="o",
-        markersize=6,
-        linewidth=2,
-        label="成功概率 P",
-    )
+    # probability_line = ax_right.plot(
+    #     list(x_positions),
+    #     df["success_rate"],
+    #     color="#8e44ad",
+    #     marker="o",
+    #     markersize=6,
+    #     linewidth=2,
+    #     label="成功概率 P",
+    # )
     ax_right.scatter(
         list(x_positions),
         df["channel_utilization"],
@@ -307,13 +307,13 @@ def plot_tag_count_overview(results: Sequence[dict[str, float]],
         s=35,
         zorder=4,
     )
-    ax_right.scatter(
-        list(x_positions),
-        df["success_rate"],
-        color="#8e44ad",
-        s=35,
-        zorder=4,
-    )
+    # ax_right.scatter(
+    #     list(x_positions),
+    #     df["success_rate"],
+    #     color="#8e44ad",
+    #     s=35,
+    #     zorder=4,
+    # )
 
     for idx, value in enumerate(df["channel_utilization"]):
         ax_right.annotate(
@@ -331,21 +331,21 @@ def plot_tag_count_overview(results: Sequence[dict[str, float]],
             ],
         )
 
-    for idx, value in enumerate(df["success_rate"]):
-        ax_right.annotate(
-            f"{value:.2%}",
-            (idx, value),
-            textcoords="offset points",
-            xytext=(0, -18),
-            ha="center",
-            va="top",
-            fontsize=9,
-            color="#8e44ad",
-            clip_on=False,
-            path_effects=[
-                patheffects.withStroke(linewidth=3, foreground="white"),
-            ],
-        )
+    # for idx, value in enumerate(df["success_rate"]):
+    #     ax_right.annotate(
+    #         f"{value:.2%}",
+    #         (idx, value),
+    #         textcoords="offset points",
+    #         xytext=(0, -18),
+    #         ha="center",
+    #         va="top",
+    #         fontsize=9,
+    #         color="#8e44ad",
+    #         clip_on=False,
+    #         path_effects=[
+    #             patheffects.withStroke(linewidth=3, foreground="white"),
+    #         ],
+    #     )
 
     ax_right.set_ylim(0, max(1.0, float(max(df["success_rate"].max(), df["channel_utilization"].max())) * 1.18))
     ax_left.set_xticks(list(x_positions))
@@ -361,7 +361,7 @@ def plot_tag_count_overview(results: Sequence[dict[str, float]],
         Patch(facecolor="#f39c12", label="部分冲突"),
         Patch(facecolor="#e74c3c", label="完全冲突"),
         Line2D([0], [0], color="#16a085", marker="o", linewidth=2, label="信道利用率 S"),
-        Line2D([0], [0], color="#8e44ad", marker="o", linewidth=2, label="成功概率 P"),
+        # Line2D([0], [0], color="#8e44ad", marker="o", linewidth=2, label="成功概率 P"),   
     ]
     ax_left.legend(handles=handles, loc="upper left")
 
@@ -374,7 +374,7 @@ def plot_tag_count_overview(results: Sequence[dict[str, float]],
         alpha=0.85,
     )
     ax_right.annotate(
-        "Pure ALOHA Theoretical Limit\nS = 1 / (2e) ≈ 0.184",
+        "Pure ALOHA 18.4%",
         xy=(1.0, THEORETICAL_LIMIT),
         xycoords=("axes fraction", "data"),
         xytext=(-12, 36),
