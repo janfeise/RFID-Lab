@@ -4,7 +4,6 @@
 """
 
 import heapq
-import math
 import random
 from dataclasses import dataclass, field
 from typing import Any, Callable, List
@@ -21,7 +20,8 @@ class Tag:
     """标签运行状态。"""
 
     tag_id: int
-    lam: float
+    send_interval: float
+    send_jitter: float
     packet_duration: float
     backoff_max: float
     retry_count: int = 0
@@ -43,7 +43,10 @@ class Tag:
         else:
             self.retry_count = 0
 
-        self.next_send_time = current_time + _exponential_interval(self.lam)
+        self.next_send_time = current_time + _next_gap(
+            self.send_interval,
+            self.send_jitter,
+        )
         return self.next_send_time
 
 
@@ -52,7 +55,8 @@ class Stats:
     """统计结果。"""
 
     tag_count: int = 0
-    lam: float = 0.0
+    send_interval: float = 0.0
+    send_jitter: float = 0.0
     sim_time: float = 0.0
     packet_duration: float = 0.0
 
@@ -113,7 +117,8 @@ class Stats:
             "纯 ALOHA 仿真摘要",
             "=" * 50,
             f"  标签数:            {self.tag_count}",
-            f"  Lambda (λ):        {self.lam:.4f}",
+            f"  发送间隔:          {self.send_interval:.4f} s",
+            f"  随机抖动:          {self.send_jitter:.4f} s",
             f"  仿真时间:          {self.sim_time:.2f} s",
             f"  数据包持续时间:    {self.packet_duration:.4f} s",
             f"  总数据包:          {self.total_packets}",
@@ -125,7 +130,6 @@ class Stats:
             "-" * 50,
             f"  提供的负载 G:      {self.offered_load:.6f}",
             f"  信道利用率 S:      {self.channel_utilization:.6f}",
-            f"  理论上限 1/(2e):   {1.0 / (2.0 * math.e):.6f}",
             "=" * 50,
         ]
         return "\n".join(lines)
@@ -170,7 +174,7 @@ class Simulator:
     """纯 ALOHA 仿真器。
 
     使用示例:
-        cfg = Config(tag_count=50, lam=0.5, sim_time=1000)
+        cfg = Config(tag_count=50, send_interval=0.8, send_jitter=0.2, sim_time=1000)
         sim = Simulator(cfg)
         stats = sim.run()
         print(stats.summary())
@@ -181,9 +185,11 @@ class Simulator:
         self.scheduler = Queue()
         self.tags: List[Tag] = []
         self.packets: List[Packet] = []
+        self.active_packets: List[Packet] = []
         self.stats = Stats(
             tag_count=config.tag_count,
-            lam=config.lam,
+            send_interval=config.send_interval,
+            send_jitter=config.send_jitter,
             sim_time=config.sim_time,
             packet_duration=config.packet_duration,
         )
@@ -200,9 +206,11 @@ class Simulator:
         self.scheduler.clear()
         self.tags = []
         self.packets = []
+        self.active_packets = []
         self.stats = Stats(
             tag_count=self.config.tag_count,
-            lam=self.config.lam,
+            send_interval=self.config.send_interval,
+            send_jitter=self.config.send_jitter,
             sim_time=self.config.sim_time,
             packet_duration=self.config.packet_duration,
         )
@@ -212,7 +220,8 @@ class Simulator:
         self.tags = [
             Tag(
                 tag_id=tag_id,
-                lam=cfg.lam,
+                send_interval=cfg.send_interval,
+                send_jitter=cfg.send_jitter,
                 packet_duration=cfg.packet_duration,
                 backoff_max=cfg.backoff_max,
             )
@@ -223,7 +232,7 @@ class Simulator:
         # 每个标签先投一个首包。
         for tag in self.tags:
             self.scheduler.schedule(
-                _exponential_interval(tag.lam),
+                _next_gap(tag.send_interval, tag.send_jitter),
                 self._start,
                 tag,
             )
@@ -232,53 +241,39 @@ class Simulator:
         # 记录发送开始，并安排结束事件。
         current_time = self.scheduler.current_time
         packet = tag.make_packet(current_time)
+
+        self._expire_active(current_time)
+        for active in self.active_packets:
+            _mark_overlap(packet, active, current_time)
+
         self.packets.append(packet)
+        self.active_packets.append(packet)
 
         end_time = current_time + self.config.packet_duration
         self.scheduler.schedule(end_time, self._end, tag, packet)
 
     def _end(self, tag: Tag, packet: Packet) -> None:
-        # 发送结束后，先看是否碰撞，再决定下一次发送时间。
-        collided = any(
-            _overlaps(packet, other)
-            for other in self.packets
-            if other is not packet
-        )
+        # 发送结束后，根据已记录的重叠结果决定下一次发送时间。
+        if packet in self.active_packets:
+            self.active_packets.remove(packet)
+        _classify(packet)
+        collided = packet.collided
         next_time = tag.next_tx(self.scheduler.current_time, collided)
         self.scheduler.schedule(next_time, self._start, tag)
 
     def _finish(self) -> None:
-        # 仿真结束后统一标记碰撞并汇总统计。
-        _classify_packets(self.packets)
+        # 仿真结束后汇总统计。
         self.stats.record(self.packets)
 
+    def _expire_active(self, current_time: float) -> None:
+        self.active_packets = [
+            packet for packet in self.active_packets
+            if packet.end_time > current_time
+        ]
 
-def _exponential_interval(lam: float) -> float:
-    return -math.log(1.0 - random.random()) / lam
-
-
-def _overlaps(p1: Packet, p2: Packet) -> bool:
-    return p1.start_time < p2.end_time and p2.start_time < p1.end_time
-
-
-def _classify_packets(packets: List[Packet]) -> None:
-    # 逐包合并重叠区间，区分部分碰撞和完全碰撞。
-    for index, packet in enumerate(packets):
-        overlap_intervals: List[tuple[float, float]] = []
-        for other_index, other in enumerate(packets):
-            if index == other_index:
-                continue
-            if _overlaps(packet, other):
-                packet.collided = True
-                overlap_start = max(packet.start_time, other.start_time)
-                overlap_end = min(packet.end_time, other.end_time)
-                overlap_intervals.append((overlap_start, overlap_end))
-
-        if packet.collided:
-            if _union_duration(overlap_intervals) >= packet.duration:
-                packet.full_collision = True
-            else:
-                packet.partial_collision = True
+def _next_gap(send_interval: float, send_jitter: float) -> float:
+    gap = send_interval + random.uniform(-send_jitter, send_jitter)
+    return max(0.01, gap)
 
 
 def _union_duration(intervals: List[tuple[float, float]]) -> float:
@@ -297,3 +292,20 @@ def _union_duration(intervals: List[tuple[float, float]]) -> float:
             cur_start, cur_end = start, end
 
     return total + (cur_end - cur_start)
+
+
+def _mark_overlap(current: Packet, active: Packet, now: float) -> None:
+    current.collided = True
+    active.collided = True
+    overlap = (now, min(current.end_time, active.end_time))
+    current.overlap_intervals.append(overlap)
+    active.overlap_intervals.append(overlap)
+
+
+def _classify(packet: Packet) -> None:
+    if not packet.collided:
+        return
+    if _union_duration(packet.overlap_intervals) >= packet.duration:
+        packet.full_collision = True
+    else:
+        packet.partial_collision = True

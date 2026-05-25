@@ -1,4 +1,4 @@
-"""纯ALOHA仿真的数据包模型。"""
+"""纯 ALOHA 仿真的数据包模型。"""
 
 from dataclasses import dataclass, field
 
@@ -8,7 +8,7 @@ class Packet:
     """由标签传输的数据包。
 
     每个数据包占据连续时间间隔[start_time,end_time)。
-    碰撞标志由仿真后的碰撞检测器设置。
+    碰撞标志由仿真过程设置。
     """
 
     tag_id: int
@@ -19,6 +19,7 @@ class Packet:
     collided: bool = False
     partial_collision: bool = False
     full_collision: bool = False
+    overlap_intervals: list[tuple[float, float]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
         self.end_time = self.start_time + self.duration

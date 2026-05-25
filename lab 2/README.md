@@ -28,12 +28,16 @@ pure_aloha/
 
 Pure ALOHA 的核心执行链现在集中在 `core/simulator.py` 中，按“事件调度 -> 发送开始 -> 发送结束 -> 碰撞判定 -> 重传调度 -> 统计汇总”的顺序组织，便于直接阅读协议机制。
 
+### 简单发送
+
+为了更适合教学演示，标签不再使用泊松到达模型，而是使用更直观的发送间隔与轻微随机抖动来发包。这样更容易观察“随机发送、时间重叠、碰撞产生、退避重传”的完整流程。
+
 ### 连续时间、事件驱动（非时隙）
 
 纯 ALOHA 与时隙 ALOHA 的本质区别在于：标签可以在**任意实数时间点**发送数据，而非离散的时隙边界。
 
 - `heapq` 优先队列按时间顺序调度事件
-- 发送间隔遵循**指数（泊松）分布**
+- 发送时间由简单间隔和随机抖动生成
 - **没有** `for t in range(...)`，没有时隙数组，没有每时隙发送概率
 
 ### 碰撞检测
@@ -49,7 +53,7 @@ p1.start_time < p2.end_time  AND  p2.start_time < p1.end_time
 ### 信道利用率
 
 ```
-S = T_success / T_total      （理论最大值：1/(2e) ≈ 0.184）
+S = T_success / T_total
 ```
 
 ## 快速开始
@@ -61,11 +65,14 @@ python main.py
 # 参数扫描（λ 和 N 曲线）
 python main.py --sweep
 
+# 多次单次仿真总览图（标签数量、冲突与成功概率）
+python main.py --tag-count-sweep
+
 # 根据已有 CSV 数据生成图表
 python main.py --plot
 
 # 自定义参数
-python main.py --tag-count 100 --lam 0.01 --sim-time 5000
+python main.py --tag-count 10 --send-interval 5 --send-jitter 0.25 --sim-time 1000
 ```
 
 ## 配置
@@ -74,23 +81,25 @@ python main.py --tag-count 100 --lam 0.01 --sim-time 5000
 
 | 参数              | 默认值 | 描述                               |
 | ----------------- | ------ | ---------------------------------- |
-| `tag_count`       | 500    | 标签数量（N）                      |
-| `lam`             | 0.02   | 每个标签的泊松到达率 λ             |
+| `tag_count`       | 10     | 标签数量（N）                      |
+| `send_interval`   | 1.0    | 每次发送之间的基础间隔             |
+| `send_jitter`     | 0.25   | 发送间隔的随机抖动                 |
 | `sim_time`        | 1000.0 | 仿真时长（秒）                     |
 | `packet_duration` | 1.0    | 每个数据包的传输时间               |
 | `backoff_max`     | 3.0    | 最大随机退避窗口                   |
 | `random_seed`     | 42     | 伪随机数生成器种子（用于可重现性） |
 
-总负载：**G = N × λ × packet_duration**
+发送更密集时，重叠更频繁，碰撞更容易出现。
 
 ## 输出文件
 
 - `results/raw/events.json` — 每个数据包的时间区间和碰撞状态
 - `results/csv/sim_result.csv` — 单次仿真汇总
 - `results/csv/sweep_results.csv` — 多轮扫描数据，用于绘制曲线
-- `results/plots/ps_curve.png` — 总负载 vs. 信道利用率
+- `results/plots/ps_curve.png` — 发送间隔 vs. 信道利用率
 - `results/plots/ns_curve.png` — 标签数量 vs. 信道利用率
-- `results/plots/collision_rate.png` — 碰撞率 vs. 总负载
+- `results/plots/collision_rate.png` — 碰撞率 vs. 发送间隔
+- `results/plots/tag_count_overview.png` — 多次单次仿真总览图
 - `results/plots/timeline.png` — 甘特图风格的数据包时间线视图
 
 ## 扩展说明

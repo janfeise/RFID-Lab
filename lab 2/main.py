@@ -2,7 +2,7 @@
 
 用法:
     python main.py              # 使用默认配置的单次运行
-    python main.py --sweep      # 参数扫描(λ和N)
+    python main.py --sweep      # 参数扫描(发送间隔和N)
     python main.py --plot       # 从保存的CSV生成图表
 """
 
@@ -11,11 +11,10 @@ import csv
 import json
 import os
 import random
-import sys
 
 from config import Config
 from core.simulator import Simulator
-from analysis.plot import plot_all
+from analysis.plot import plot_all, plot_tag_count_overview
 from analysis.report import generate_report
 
 
@@ -40,8 +39,9 @@ def run_single(config: Config) -> str:
     random.seed(config.random_seed)
 
     print(f"运行纯ALOHA仿真: "
-          f"N={config.tag_count}, λ={config.lam}, "
-          f"T={config.sim_time}s, packet={config.packet_duration}s")
+            f"N={config.tag_count}, I={config.send_interval}, "
+            f"jitter={config.send_jitter}, T={config.sim_time}s, "
+            f"packet={config.packet_duration}s")
 
     sim = Simulator(config)
     stats = sim.run()
@@ -60,11 +60,11 @@ def run_single(config: Config) -> str:
     csv_path = os.path.join(config.results_csv, "sim_result.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["tag_num", "lambda", "success", "collision",
+        writer.writerow(["tag_num", "send_interval", "success", "collision",
                           "utilization", "offered_load"])
         writer.writerow([
             stats.tag_count,
-            stats.lam,
+            stats.send_interval,
             stats.success_count,
             stats.collision_count,
             stats.channel_utilization,
@@ -83,7 +83,7 @@ def run_single(config: Config) -> str:
 # 参数扫描
 # ---------------------------------------------------------------------------
 def run_sweep(base_config: Config) -> str:
-    """在λ和N值的范围内运行仿真。
+    """在发送间隔和N值的范围内运行仿真。
 
     保存适合绘制P–S和N–S曲线的多行CSV。
 
@@ -91,15 +91,11 @@ def run_sweep(base_config: Config) -> str:
     """
     ensure_dirs(base_config)
 
-    # Lambda扫描(固定N)——覆盖G从~0.05到~2.0
-    # G = N * λ * T_pkt，所以λ = G / (N * T_pkt)
-    n = base_config.tag_count
-    t_pkt = base_config.packet_duration
-    lam_values = [round(g / (n * t_pkt), 6)
-                  for g in [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5,
-                            0.6, 0.8, 1.0, 1.2, 1.5, 2.0]]
+    # 发送间隔扫描(固定N)——从密集发送到稀疏发送
+    interval_values = [0.20, 0.30, 0.40, 0.50, 0.60, 0.80,
+                       1.00, 1.25, 1.50, 2.00]
 
-    # 标签计数扫描(固定λ)
+    # 标签计数扫描(固定发送间隔)
     n_values = [10, 20, 30, 40, 50, 60, 80, 100, 150, 200]
 
     csv_path = os.path.join(base_config.results_csv, "sweep_results.csv")
@@ -107,17 +103,18 @@ def run_sweep(base_config: Config) -> str:
 
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["tag_num", "lambda", "success", "collision",
+        writer.writerow(["tag_num", "send_interval", "success", "collision",
                           "utilization", "offered_load"])
 
-        # 对λ进行扫描
+        # 对发送间隔进行扫描
         print("\n" + "=" * 50)
-        print("对λ(提供的负载)进行扫描...")
+        print("对发送间隔进行扫描...")
         print("=" * 50)
-        for lam in lam_values:
+        for send_interval in interval_values:
             cfg = Config(
                 tag_count=base_config.tag_count,
-                lam=lam,
+                send_interval=send_interval,
+                send_jitter=base_config.send_jitter,
                 sim_time=base_config.sim_time,
                 packet_duration=base_config.packet_duration,
                 backoff_max=base_config.backoff_max,
@@ -130,11 +127,11 @@ def run_sweep(base_config: Config) -> str:
             sim = Simulator(cfg)
             stats = sim.run()
             writer.writerow([
-                stats.tag_count, stats.lam,
+                stats.tag_count, stats.send_interval,
                 stats.success_count, stats.collision_count,
                 stats.channel_utilization, stats.offered_load,
             ])
-            print(f"  λ={lam:.4f}  →  S={stats.channel_utilization:.6f}  "
+            print(f"  I={send_interval:.4f}  →  S={stats.channel_utilization:.6f}  "
                   f"(success={stats.success_count}, collisions={stats.collision_count})")
 
         # 对N进行扫描
@@ -144,7 +141,8 @@ def run_sweep(base_config: Config) -> str:
         for n in n_values:
             cfg = Config(
                 tag_count=n,
-                lam=base_config.lam,
+                send_interval=base_config.send_interval,
+                send_jitter=base_config.send_jitter,
                 sim_time=base_config.sim_time,
                 packet_duration=base_config.packet_duration,
                 backoff_max=base_config.backoff_max,
@@ -157,7 +155,7 @@ def run_sweep(base_config: Config) -> str:
             sim = Simulator(cfg)
             stats = sim.run()
             writer.writerow([
-                stats.tag_count, stats.lam,
+                stats.tag_count, stats.send_interval,
                 stats.success_count, stats.collision_count,
                 stats.channel_utilization, stats.offered_load,
             ])
@@ -169,6 +167,93 @@ def run_sweep(base_config: Config) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 多次单次仿真综合绘图
+# ---------------------------------------------------------------------------
+def _parse_tag_counts(raw_value: str) -> list[int]:
+    values = [chunk for chunk in raw_value.replace(",", " ").split() if chunk]
+    tag_counts = [int(value) for value in values]
+    if not tag_counts:
+        raise ValueError("tag_counts 不能为空")
+    return tag_counts
+
+
+def run_tag_count_sweep(base_config: Config, tag_counts: list[int]) -> tuple[str, str]:
+    """对多个标签数量分别运行单次仿真，并绘制综合利用率曲线。"""
+    ensure_dirs(base_config)
+
+    csv_path = os.path.join(base_config.results_csv, "tag_count_sweep_results.csv")
+    plot_path = os.path.join(base_config.results_plots, "tag_count_overview.png")
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+    results: list[dict[str, float]] = []
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow([
+            "tag_count",
+            "success_count",
+            "collision_count",
+            "partial_collision_count",
+            "full_collision_count",
+            "total_packets",
+            "success_rate",
+            "channel_utilization",
+        ])
+
+        print("\n" + "=" * 50)
+        print("对标签数量进行多次单次仿真...")
+        print("=" * 50)
+
+        for tag_count in tag_counts:
+            cfg = Config(
+                tag_count=tag_count,
+                send_interval=base_config.send_interval,
+                send_jitter=base_config.send_jitter,
+                sim_time=base_config.sim_time,
+                packet_duration=base_config.packet_duration,
+                backoff_max=base_config.backoff_max,
+                random_seed=base_config.random_seed,
+                results_raw=base_config.results_raw,
+                results_csv=base_config.results_csv,
+                results_plots=base_config.results_plots,
+            )
+            random.seed(cfg.random_seed)
+            sim = Simulator(cfg)
+            stats = sim.run()
+
+            row = {
+                "tag_count": float(stats.tag_count),
+                "success_count": float(stats.success_count),
+                "collision_count": float(stats.collision_count),
+                "partial_collision_count": float(stats.partial_collision_count),
+                "full_collision_count": float(stats.full_collision_count),
+                "total_packets": float(stats.total_packets),
+                "success_rate": float(stats.success_rate),
+                "channel_utilization": float(stats.channel_utilization),
+            }
+            results.append(row)
+            writer.writerow([
+                stats.tag_count,
+                stats.success_count,
+                stats.collision_count,
+                stats.partial_collision_count,
+                stats.full_collision_count,
+                stats.total_packets,
+                stats.success_rate,
+                stats.channel_utilization,
+            ])
+            print(
+                f"  N={tag_count:3d}  →  P={stats.success_rate:.6f}, S={stats.channel_utilization:.6f}  "
+                f"(success={stats.success_count}, collisions={stats.collision_count})"
+            )
+
+    generated_plot = plot_tag_count_overview(results, plot_path)
+    print(f"\nTag-count sweep results saved → {csv_path}")
+    print(f"Tag-count overview plot saved → {generated_plot}")
+    return csv_path, generated_plot
+
+
+# ---------------------------------------------------------------------------
 # 命令行界面
 # ---------------------------------------------------------------------------
 def main() -> None:
@@ -176,13 +261,19 @@ def main() -> None:
         description="纯ALOHA离散事件仿真器"
     )
     parser.add_argument("--sweep", action="store_true",
-                        help="运行参数扫描(λ和N)")
+                        help="运行参数扫描(发送间隔和N)")
     parser.add_argument("--plot", action="store_true",
                         help="从保存的CSV数据生成图表")
+    parser.add_argument("--tag-count-sweep", action="store_true",
+                        help="对多个标签数量运行单次仿真并绘制综合曲线")
+    parser.add_argument("--tag-counts", type=str, default=None,
+                        help="覆盖标签数量列表，例如 10,20,50,100,150,200,300")
     parser.add_argument("--tag-count", type=int, default=None,
                         help="覆盖标签数量")
-    parser.add_argument("--lam", type=float, default=None,
-                        help="覆盖泊松到达率λ")
+    parser.add_argument("--send-interval", type=float, default=None,
+                        help="覆盖基础发送间隔")
+    parser.add_argument("--send-jitter", type=float, default=None,
+                        help="覆盖发送抖动")
     parser.add_argument("--sim-time", type=float, default=None,
                         help="覆盖仿真时间")
     args = parser.parse_args()
@@ -192,12 +283,23 @@ def main() -> None:
     # 应用CLI覆盖
     if args.tag_count is not None:
         config.tag_count = args.tag_count
-    if args.lam is not None:
-        config.lam = args.lam
+    if args.send_interval is not None:
+        config.send_interval = args.send_interval
+    if args.send_jitter is not None:
+        config.send_jitter = args.send_jitter
     if args.sim_time is not None:
         config.sim_time = args.sim_time
 
-    if args.sweep:
+    if args.tag_count_sweep:
+        tag_counts = (
+            _parse_tag_counts(args.tag_counts)
+            if args.tag_counts is not None
+            else [10, 15, 20, 25, 30, 40, 50, 75, 100, 125, 150, 200, 250, 300]
+        )
+        csv_path, plot_path = run_tag_count_sweep(config, tag_counts)
+        print(f"  csv → {csv_path}")
+        print(f"  plot → {plot_path}")
+    elif args.sweep:
         csv_path = run_sweep(config)
         # 扫描后自动生成图表
         events_path = os.path.join(config.results_raw, "events.json")
@@ -217,13 +319,14 @@ def main() -> None:
         for name, path in results.items():
             print(f"  {name} → {path}")
     else:
+        print("运行单次仿真...")
         raw_path = run_single(config)
         # 自动绘图
-        csv_path = os.path.join(config.results_csv, "sim_result.csv")
-        print("\n生成图表...")
-        results = plot_all(csv_path, raw_path, config.results_plots)
-        for name, path in results.items():
-            print(f"  {name} → {path}")
+        # csv_path = os.path.join(config.results_csv, "sim_result.csv")
+        # print("\n生成图表...")
+        # results = plot_all(csv_path, raw_path, config.results_plots)
+        # for name, path in results.items():
+        #     print(f"  {name} → {path}")
 
 
 if __name__ == "__main__":

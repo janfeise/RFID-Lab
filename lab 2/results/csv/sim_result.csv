@@ -1,2 +1,2 @@
-tag_num,lambda,success,collision,utilization,offered_load
-300,0.02,0,5707,0.0,5.707
+tag_num,send_interval,success,collision,utilization,offered_load
+50,10.0,2511,2378,0.12555000000000002,0.24445000000000003
