@@ -172,10 +172,12 @@ class Simulator:
                 if random.random() < cfg.send_probability
             ]
 
+            # 空闲时隙
             if not transmitting_tags:
                 self.stats.idle_slot_count += 1
                 continue
 
+            # 成功时隙
             if len(transmitting_tags) == 1:
                 tag = transmitting_tags[0]
                 packet = tag.make_packet(
@@ -188,7 +190,7 @@ class Simulator:
                 self.stats.total_attempts += 1
                 continue
 
-            # 同一时隙里多个 Tag 同时发送，所有分组都失败。
+            # 冲突时隙：同一时隙里多个 Tag 同时发送，所有分组都失败
             self.stats.collision_count += 1
             self.stats.total_attempts += len(transmitting_tags)
             for tag in transmitting_tags:

@@ -1,2 +1,2 @@
-tag_num,send_interval,success,collision,utilization,offered_load
-50,10.0,2511,2378,0.12555000000000002,0.24445000000000003
+tag_count,send_probability,slot_size,slot_count,success_count,collision_count,idle_slot_count,total_attempts,throughput,channel_utilization,offered_load
+50,0.03,0.01,10000,3418,4372,2210,14880,0.3418,0.3418,1.488

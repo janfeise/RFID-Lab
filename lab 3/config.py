@@ -12,11 +12,11 @@ class Config:
 
     # --- 标签/发送参数 ---
     tag_count: int = 50             # N: 标签数量
-    send_probability: float = 0.2   # P: 每个时隙内的发送概率
+    send_probability: float = 0.03   # P: 每个时隙内的发送概率
 
     # --- 仿真参数 ---
     slot_size: float = 0.01         # 一个时隙的时长(秒)
-    slot_count: int = 1000          # 总时隙数量
+    slot_count: int = 10000          # 总时隙数量
     random_seed: int = 45           # PRNG 种子用于可重复性
 
     # --- 输出目录(相对于项目根目录) ---
